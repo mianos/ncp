@@ -1,7 +1,7 @@
 set(CMAKE_CXX_STANDARD 20)
 idf_component_register(
     SRCS
-       main.c
+       main.cpp
     INCLUDE_DIRS
        "."
     REQUIRES
