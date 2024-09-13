@@ -4,6 +4,7 @@
 
 #include "WifiManager.h"
 #include "SettingsManager.h"
+#include "web.h"
 
 static const char *TAG = "npc";
 
@@ -25,6 +26,14 @@ extern "C" void app_main() {
 //	wifiManager.clear();
     if (xSemaphoreTake(wifiSemaphore, portMAX_DELAY) ) {
 		ESP_LOGI(TAG, "Main task continues after WiFi connection.");
+
+        static WebServer webServer;
+        if (webServer.start() == ESP_OK) {
+            ESP_LOGI(TAG, "Web server started successfully.");
+        } else {
+            ESP_LOGE(TAG, "Failed to start web server.");
+        }
+
 		while (true) {
 			vTaskDelay(pdMS_TO_TICKS(100)); 
 		
