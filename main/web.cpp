@@ -1,5 +1,7 @@
-#include "web.h"
+#include <vector>
 #include <cstring>
+#include "cJSON.h"
+#include "web.h"
 #include "esp_random.h"
 
 static const char *TAG = "WebServer";
@@ -53,9 +55,17 @@ esp_err_t WebServer::start() {
         .user_ctx  = this
     };
 
+    httpd_uri_t pump_uri = {
+        .uri       = "/pump",
+        .method    = HTTP_POST,
+        .handler   = pump_handler,
+        .user_ctx  = nullptr
+    };
+
     httpd_register_uri_handler(server, &index_uri);
     httpd_register_uri_handler(server, &long_uri);
     httpd_register_uri_handler(server, &quick_uri);
+	httpd_register_uri_handler(server, &pump_uri);
 
     return ESP_OK;
 }
@@ -219,3 +229,65 @@ esp_err_t WebServer::index_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+
+esp_err_t WebServer::pump_handler(httpd_req_t *req) {
+    ESP_LOGI(TAG, "uri: /pump");
+
+    int total_len = req->content_len;
+    int received = 0;
+
+    if (total_len <= 0) {
+        ESP_LOGE(TAG, "Invalid content length: %d", total_len);
+        httpd_resp_send_err(req, HTTPD_411_LENGTH_REQUIRED, "Content-Length required");
+        return ESP_FAIL;
+    }
+    
+    std::vector<char> buffer(total_len + 1); // +1 for null-terminator
+
+    while (received < total_len) {
+        int ret = httpd_req_recv(req, buffer.data() + received, total_len - received);
+        if (ret <= 0) {
+            if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+                httpd_resp_send_408(req); // Request Timeout
+            } else {
+                ESP_LOGE(TAG, "Failed to receive POST data");
+                httpd_resp_send_500(req);
+            }
+            return ESP_FAIL;
+        }
+        received += ret;
+    }
+    buffer[total_len] = '\0'; // Null-terminate the string
+    
+    cJSON *json = cJSON_Parse(buffer.data());
+    if (json == NULL) {
+        ESP_LOGE(TAG, "Failed to parse JSON");
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
+        return ESP_FAIL;
+    }
+
+    cJSON *speed_item = cJSON_GetObjectItem(json, "speed");
+    if (!cJSON_IsNumber(speed_item)) {
+        ESP_LOGE(TAG, "Speed is not a number");
+        cJSON_Delete(json);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing or invalid 'speed'");
+        return ESP_FAIL;
+    }
+
+    int speed = speed_item->valueint;
+    ESP_LOGI(TAG, "Received speed: %d", speed);
+
+    if (speed >= 0 && speed <= 100) {
+        ESP_LOGI(TAG, "Setting pump speed to %d%%", speed);
+        //  pump.setSpeed(speed);
+    } else {
+        ESP_LOGE(TAG, "Invalid speed value: %d", speed);
+        cJSON_Delete(json);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid 'speed' value");
+        return ESP_FAIL;
+    }
+    cJSON_Delete(json);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"OK\"}");
+    return ESP_OK;
+}

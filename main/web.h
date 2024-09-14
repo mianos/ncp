@@ -33,6 +33,7 @@ private:
     static esp_err_t long_async_handler(httpd_req_t *req);
     static esp_err_t quick_handler(httpd_req_t *req);
     static esp_err_t index_handler(httpd_req_t *req);
+	static esp_err_t pump_handler(httpd_req_t *req);
 
     static QueueHandle_t async_req_queue;
     static SemaphoreHandle_t worker_ready_count;
