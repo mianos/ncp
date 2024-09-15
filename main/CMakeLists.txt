@@ -2,7 +2,8 @@ set(CMAKE_CXX_STANDARD 20)
 idf_component_register(
     SRCS
        main.cpp
-       web.cpp
+       WebServer.cpp
+       StepperMotor.cpp
     INCLUDE_DIRS
        "."
     REQUIRES

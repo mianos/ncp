@@ -4,7 +4,7 @@
 
 #include "WifiManager.h"
 #include "SettingsManager.h"
-#include "web.h"
+#include "WebServer.h"
 
 static const char *TAG = "npc";
 
