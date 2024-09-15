@@ -35,19 +35,15 @@ extern "C" void app_main() {
             ESP_LOGE(TAG, "Failed to start web server.");
         }
 
-    ledc_timer_t timer_num = LEDC_TIMER_0;
-    ledc_channel_t channel_num = LEDC_CHANNEL_0;
-
     // Instantiate the StepperMotor class with 10 Hz frequency
-    StepperMotor stepperMotor(
-        GPIO_NUM_42,           // GPIO number connected to STEP pin
-        timer_num,          // Timer number
-        channel_num,        // Channel number
-        LEDC_LOW_SPEED_MODE,// Speed mode
-        10                  // Set frequency to 10 Hz
-    );
+    StepperMotor stepperMotor(GPIO_NUM_42);
 
 	    stepperMotor.start();
+		    // Run motor for 10 seconds
+    vTaskDelay(pdMS_TO_TICKS(10000));
+
+    // Change frequency to 20 Hz without stopping
+    stepperMotor.setFrequency(20);
 
 		while (true) {
 			vTaskDelay(pdMS_TO_TICKS(100)); 
