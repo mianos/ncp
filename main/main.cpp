@@ -26,24 +26,19 @@ extern "C" void app_main() {
 	WiFiManager wifiManager(nv, localEventHandler, nullptr);
 //	wifiManager.clear();
     if (xSemaphoreTake(wifiSemaphore, portMAX_DELAY) ) {
+		StepperMotor stepperMotor(GPIO_NUM_42);
+	    stepperMotor.start();
+
 		ESP_LOGI(TAG, "Main task continues after WiFi connection.");
 
-        static WebServer webServer;
+		static WebServer::WebContext ctx{stepperMotor};
+        static WebServer webServer{ctx};
+
         if (webServer.start() == ESP_OK) {
             ESP_LOGI(TAG, "Web server started successfully.");
         } else {
             ESP_LOGE(TAG, "Failed to start web server.");
         }
-
-    // Instantiate the StepperMotor class with 10 Hz frequency
-    StepperMotor stepperMotor(GPIO_NUM_42);
-
-	    stepperMotor.start();
-		    // Run motor for 10 seconds
-    vTaskDelay(pdMS_TO_TICKS(10000));
-
-    // Change frequency to 20 Hz without stopping
-    stepperMotor.setFrequency(20);
 
 		while (true) {
 			vTaskDelay(pdMS_TO_TICKS(100)); 

@@ -1,14 +1,21 @@
 #pragma once
-
 #include <esp_http_server.h>
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
 
+#include "StepperMotor.h"
+
+
+
 class WebServer {
 public:
-    WebServer();
+	struct WebContext {
+		StepperMotor& stepper;
+	};
+
+    WebServer(WebContext& context);
     ~WebServer();
     esp_err_t start();
     esp_err_t stop();
@@ -39,6 +46,7 @@ private:
     static SemaphoreHandle_t worker_ready_count;
     static TaskHandle_t worker_handles[MAX_ASYNC_REQUESTS];
 
+	WebContext& webContext;
     httpd_handle_t server;
 };
 

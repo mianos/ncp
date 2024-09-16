@@ -6,11 +6,19 @@
 
 static const char *TAG = "WebServer";
 
+#define GET_CONTEXT(req, ws) \
+    auto* ws = static_cast<WebServer*>(req->user_ctx); \
+    if (!ws) { \
+        ESP_LOGE(TAG,"ctx null?"); \
+        httpd_resp_send_500(req); \
+        return ESP_FAIL; \
+    }
+
 QueueHandle_t WebServer::async_req_queue = nullptr;
 SemaphoreHandle_t WebServer::worker_ready_count = nullptr;
 TaskHandle_t WebServer::worker_handles[MAX_ASYNC_REQUESTS] = {nullptr};
 
-WebServer::WebServer() : server(nullptr) {
+WebServer::WebServer(WebContext& webContext) : webContext(webContext), server(nullptr) {
     start_async_req_workers();
 }
 
@@ -59,7 +67,7 @@ esp_err_t WebServer::start() {
         .uri       = "/pump",
         .method    = HTTP_POST,
         .handler   = pump_handler,
-        .user_ctx  = nullptr
+        .user_ctx  = this
     };
 
     httpd_register_uri_handler(server, &index_uri);
@@ -232,6 +240,7 @@ esp_err_t WebServer::index_handler(httpd_req_t *req) {
 
 esp_err_t WebServer::pump_handler(httpd_req_t *req) {
     ESP_LOGI(TAG, "uri: /pump");
+	GET_CONTEXT(req, ws);
 
     int total_len = req->content_len;
     int received = 0;
@@ -277,15 +286,7 @@ esp_err_t WebServer::pump_handler(httpd_req_t *req) {
     int speed = speed_item->valueint;
     ESP_LOGI(TAG, "Received speed: %d", speed);
 
-    if (speed >= 0 && speed <= 100) {
-        ESP_LOGI(TAG, "Setting pump speed to %d%%", speed);
-        //  pump.setSpeed(speed);
-    } else {
-        ESP_LOGE(TAG, "Invalid speed value: %d", speed);
-        cJSON_Delete(json);
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid 'speed' value");
-        return ESP_FAIL;
-    }
+	ws->webContext.stepper.setFrequency(speed);
     cJSON_Delete(json);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\":\"OK\"}");
