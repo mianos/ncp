@@ -1,8 +1,11 @@
+#include <ctime> 
 #include <vector>
 #include <cstring>
 #include "cJSON.h"
 #include "WebServer.h"
 #include "esp_random.h"
+#include "esp_timer.h"
+
 
 static const char *TAG = "WebServer";
 
@@ -70,10 +73,19 @@ esp_err_t WebServer::start() {
         .user_ctx  = this
     };
 
+	httpd_uri_t healthz_uri = {
+    .uri       = "/healthz",
+    .method    = HTTP_GET,
+    .handler   = healthz_handler,
+    .user_ctx  = this
+};
+
+
     httpd_register_uri_handler(server, &index_uri);
     httpd_register_uri_handler(server, &long_uri);
     httpd_register_uri_handler(server, &quick_uri);
 	httpd_register_uri_handler(server, &pump_uri);
+	httpd_register_uri_handler(server, &healthz_uri);
 
     return ESP_OK;
 }
@@ -292,3 +304,34 @@ esp_err_t WebServer::pump_handler(httpd_req_t *req) {
     httpd_resp_sendstr(req, "{\"status\":\"OK\"}");
     return ESP_OK;
 }
+
+esp_err_t WebServer::healthz_handler(httpd_req_t *req) {
+    // Get ESP uptime in seconds
+    uint64_t uptime_us = esp_timer_get_time();
+    uint32_t uptime_sec = static_cast<uint32_t>(uptime_us / 1000000ULL);
+
+    // Get current time
+    time_t now;
+    time(&now);
+    struct tm time_info;
+    gmtime_r(&now, &time_info);
+
+    // Create ISO 8601 time string
+    char time_str[30];
+    strftime(time_str, sizeof(time_str), "%Y-%m-%dT%H:%M:%SZ", &time_info);
+
+    // Create JSON response
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddNumberToObject(json, "uptime", uptime_sec);
+    cJSON_AddStringToObject(json, "time", time_str);
+
+    const char *json_str = cJSON_PrintUnformatted(json);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, json_str);
+
+    cJSON_Delete(json);
+    free((void*)json_str);
+    return ESP_OK;
+}
+
