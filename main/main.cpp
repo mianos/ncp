@@ -26,7 +26,7 @@ extern "C" void app_main() {
 	WiFiManager wifiManager(nv, localEventHandler, nullptr);
 //	wifiManager.clear();
     if (xSemaphoreTake(wifiSemaphore, portMAX_DELAY) ) {
-		StepperMotor stepperMotor(GPIO_NUM_42);
+		StepperMotor stepperMotor;
 	    stepperMotor.start();
 
 		ESP_LOGI(TAG, "Main task continues after WiFi connection.");

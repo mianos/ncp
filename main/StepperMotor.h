@@ -3,6 +3,10 @@
 #include "driver/ledc.h"
 #include "esp_err.h"
 
+constexpr int STEP_MOTOR_GPIO_EN = 2;   // Enable pin (active low)
+constexpr int STEP_MOTOR_GPIO_DIR = 0;  // Direction pin
+constexpr int STEP_MOTOR_GPIO_STEP = 1; // Step pin
+
 class StepperMotor {
 private:
     ledc_channel_config_t ledc_channel;
@@ -20,15 +24,7 @@ private:
     void assignTimerAndChannel();
 
 public:
-    // Constructor with automatic timer and channel assignment
-    StepperMotor(int gpio_num, 
-                 ledc_mode_t speed_mode = LEDC_LOW_SPEED_MODE, 
-                 int frequency = 1000);
-
-    // Constructor with specified timer and channel
-    StepperMotor(int gpio_num, 
-                 ledc_timer_t timer_num, 
-                 ledc_channel_t channel_num, 
+    StepperMotor(int gpio_num = STEP_MOTOR_GPIO_STEP,
                  ledc_mode_t speed_mode = LEDC_LOW_SPEED_MODE, 
                  int frequency = 1000);
 
