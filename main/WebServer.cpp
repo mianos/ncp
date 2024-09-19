@@ -1,6 +1,7 @@
 #include <ctime> 
 #include <vector>
 #include <cstring>
+#include <string>
 #include "cJSON.h"
 #include "WebServer.h"
 #include "esp_random.h"
@@ -250,9 +251,10 @@ esp_err_t WebServer::index_handler(httpd_req_t *req) {
 }
 
 
+
 esp_err_t WebServer::pump_handler(httpd_req_t *req) {
     ESP_LOGI(TAG, "uri: /pump");
-	GET_CONTEXT(req, ws);
+    GET_CONTEXT(req, ws);
 
     int total_len = req->content_len;
     int received = 0;
@@ -262,7 +264,7 @@ esp_err_t WebServer::pump_handler(httpd_req_t *req) {
         httpd_resp_send_err(req, HTTPD_411_LENGTH_REQUIRED, "Content-Length required");
         return ESP_FAIL;
     }
-    
+
     std::vector<char> buffer(total_len + 1); // +1 for null-terminator
 
     while (received < total_len) {
@@ -279,7 +281,7 @@ esp_err_t WebServer::pump_handler(httpd_req_t *req) {
         received += ret;
     }
     buffer[total_len] = '\0'; // Null-terminate the string
-    
+
     cJSON *json = cJSON_Parse(buffer.data());
     if (json == NULL) {
         ESP_LOGE(TAG, "Failed to parse JSON");
@@ -287,23 +289,40 @@ esp_err_t WebServer::pump_handler(httpd_req_t *req) {
         return ESP_FAIL;
     }
 
+    // Check if a "speed" parameter is present
     cJSON *speed_item = cJSON_GetObjectItem(json, "speed");
-    if (!cJSON_IsNumber(speed_item)) {
-        ESP_LOGE(TAG, "Speed is not a number");
-        cJSON_Delete(json);
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing or invalid 'speed'");
-        return ESP_FAIL;
+    if (speed_item && cJSON_IsNumber(speed_item)) {
+        int speed = speed_item->valueint;
+        ESP_LOGI(TAG, "Received speed: %d", speed);
+        ws->webContext.stepper.setFrequency(speed);
+    } else {
+        ESP_LOGE(TAG, "Speed is missing or not a number");
     }
 
-    int speed = speed_item->valueint;
-    ESP_LOGI(TAG, "Received speed: %d", speed);
+    // Check for a "command" parameter to handle start/stop
+    cJSON *command_item = cJSON_GetObjectItem(json, "command");
+    if (command_item && cJSON_IsString(command_item)) {
+        std::string command = command_item->valuestring;
+        if (command == "start") {
+            ESP_LOGI(TAG, "Received start command");
+            ws->webContext.stepper.start();  // Call start function
+        } else if (command == "stop") {
+            ESP_LOGI(TAG, "Received stop command");
+            ws->webContext.stepper.stop();   // Call stop function
+        } else {
+            ESP_LOGE(TAG, "Invalid command: %s", command.c_str());
+            cJSON_Delete(json);
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid command");
+            return ESP_FAIL;
+        }
+    }
 
-	ws->webContext.stepper.setFrequency(speed);
     cJSON_Delete(json);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\":\"OK\"}");
     return ESP_OK;
 }
+
 
 esp_err_t WebServer::healthz_handler(httpd_req_t *req) {
     // Get ESP uptime in seconds
