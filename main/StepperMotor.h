@@ -2,8 +2,9 @@
 
 #include "driver/ledc.h"
 #include "esp_err.h"
+#include "driver/gpio.h"  // Include GPIO header
 
-constexpr int STEP_MOTOR_GPIO_EN = 2;   // Enable pin (active low)
+constexpr gpio_num_t STEP_MOTOR_GPIO_EN = GPIO_NUM_2;   // Enable pin (active low)
 constexpr int STEP_MOTOR_GPIO_DIR = 0;  // Direction pin
 constexpr int STEP_MOTOR_GPIO_STEP = 1; // Step pin
 
@@ -25,7 +26,7 @@ private:
 
 public:
     StepperMotor(int gpio_num = STEP_MOTOR_GPIO_STEP,
-                 ledc_mode_t speed_mode = LEDC_LOW_SPEED_MODE, 
+                 ledc_mode_t speed_mode = LEDC_LOW_SPEED_MODE,
                  int frequency = 1000);
 
     void setFrequency(int frequency);

@@ -1,5 +1,6 @@
 #include "StepperMotor.h"
 #include "esp_log.h"
+#include "driver/gpio.h"  // Include GPIO header for controlling enable pin
 
 static const char* TAG = "StepperMotor";
 
@@ -23,25 +24,27 @@ void StepperMotor::assignTimerAndChannel() {
         } else {
             // All timers and channels used, log an error
             ESP_LOGE(TAG, "No more available timers and channels.");
-            // Handle error as needed (e.g., set error flags, throw exceptions)
         }
     }
 }
 
 // Constructor with automatic timer and channel assignment
-StepperMotor::StepperMotor(int gpio_num, 
-                           ledc_mode_t speed_mode, 
+StepperMotor::StepperMotor(int gpio_num,
+                           ledc_mode_t speed_mode,
                            int frequency) {
     this->gpio_num = gpio_num;
     this->speed_mode = speed_mode;
 
-    assignTimerAndChannel(); // Assign timer and channel automatically
+    // Initialize the enable pin as output and set it to high (disabled)
+    gpio_reset_pin(STEP_MOTOR_GPIO_EN);
+    gpio_set_direction(STEP_MOTOR_GPIO_EN, GPIO_MODE_OUTPUT);
+    gpio_set_level(STEP_MOTOR_GPIO_EN, 1);  // Set enable pin high (inactive)
 
-    // Common initialization code
+    assignTimerAndChannel(); // Assign timer and channel automatically
     ledc_timer = {};
     ledc_timer.speed_mode = speed_mode;
     ledc_timer.timer_num = timer_num;
-    ledc_timer.duty_resolution = LEDC_TIMER_14_BIT; // Use 14-bit resolution
+    ledc_timer.duty_resolution = LEDC_TIMER_14_BIT;
     ledc_timer.freq_hz = frequency;
     ledc_timer.clk_cfg = LEDC_AUTO_CLK;
 
@@ -57,11 +60,9 @@ StepperMotor::StepperMotor(int gpio_num,
     ledc_channel.duty = max_duty / 2;
     ledc_channel.hpoint = 0;
 
-    // Initialize the LEDC peripheral with these settings
     ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
 }
-
 
 void StepperMotor::setFrequency(int frequency) {
     ledc_timer_config_t updated_timer = ledc_timer; // Copy current timer config
@@ -70,10 +71,15 @@ void StepperMotor::setFrequency(int frequency) {
 }
 
 void StepperMotor::start() {
+    // Set enable pin low (active) to start motor
+    gpio_set_level(STEP_MOTOR_GPIO_EN, 0);
+    
     ESP_ERROR_CHECK(ledc_timer_resume(speed_mode, timer_num));
 }
 
 void StepperMotor::stop() {
     ESP_ERROR_CHECK(ledc_timer_pause(speed_mode, timer_num));
+    
+    // Set enable pin high (inactive) to stop motor
+    gpio_set_level(STEP_MOTOR_GPIO_EN, 1);
 }
-
